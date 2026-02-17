@@ -54,7 +54,26 @@ docker compose version
     - Set `JWT_SECRET` and `COOKIE_SECRET` to long random strings.
     - Update `STORE_CORS` AND `ADMIN_CORS` with your actual domain names.
 
-## 3. Deploy
+3.  **Configure Caddy (SSL & Domain)**:
+    Edit the `Caddyfile` to use your real email address for Let's Encrypt notifications:
+    ```bash
+    nano Caddyfile
+    ```
+    Change `your-email@example.com` to your actual email.
+
+## 3. DNS Configuration (Crucial!)
+
+Before starting the containers, you must point your domain to the server so Caddy can get an SSL certificate.
+
+1.  Log in to your Domain Registrar or DNS Provider.
+2.  Create an **A Record**:
+    - **Name/Host**: `admin`
+    - **Value/Target**: `<Your Hetzner Server IP>`
+    - **TTL**: Default / Automatic
+
+Wait a few minutes for DNS to propagate.
+
+## 4. Deploy
 
 Build and start the containers in detached mode:
 
@@ -65,7 +84,7 @@ docker compose -f docker-compose.production.yml up -d --build
 - `--build`: Forces a rebuild of the image (useful after git pull).
 - `-d`: Detached mode (runs in background).
 
-## 4. Verify Deployment
+## 5. Verify Deployment
 
 Check the status of your containers:
 
@@ -73,10 +92,10 @@ Check the status of your containers:
 docker compose -f docker-compose.production.yml ps
 ```
 
-View logs to ensure Medusa started correctly:
+View logs to ensure Medusa and Caddy started correctly:
 
 ```bash
-docker compose -f docker-compose.production.yml logs -f medusa
+docker compose -f docker-compose.production.yml logs -f caddy
 ```
 
 Run a health check (from the server):
@@ -85,7 +104,14 @@ Run a health check (from the server):
 curl http://localhost:9000/health
 ```
 
-## 5. Updates
+## 6. Accessing the Admin
+
+Open your browser and navigate to:
+**https://admin.lounjstudio.com/app**
+
+You should see a secure (lock icon) connection.
+
+## 7. Updates
 
 To deploy changes (after pushing to git):
 
@@ -96,17 +122,3 @@ git pull origin main
 # Rebuild and restart containers
 docker compose -f docker-compose.production.yml up -d --build
 ```
-
-## 6. Accessing the Admin
-
-By default, Medusa runs on port `9000`. You can access it at `http://<your-server-ip>:9000/app`.
-
-**Recommended**: Set up a Reverse Proxy (Nginx/Caddy) with SSL (HTTPS) for production security.
-
-- Direct access via IP is not recommended for production.
-- Example Caddyfile for automatic HTTPS:
-  ```
-  your-domain.com {
-    reverse_proxy localhost:9000
-  }
-  ```
