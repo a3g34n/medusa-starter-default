@@ -29,6 +29,7 @@ COPY --from=builder /app/.yarn ./.yarn
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.medusa/server ./.medusa/server
 COPY --from=builder /app/medusa-config.ts ./medusa-config.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 # Copy public folder if it exists (for static assets)
 # COPY --from=builder /app/public ./public 
 
