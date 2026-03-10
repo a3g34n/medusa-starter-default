@@ -47,8 +47,8 @@ module.exports = defineConfig({
             name: "increase-upload-size-limit",
             enforce: "pre" as const,
             transform(code: string, id: string) {
-              if (id.includes("upload-media-form-item")) {
-                return code.replace("<FileUpload", "<FileUpload maxFileSize={Infinity}")
+              if (code.includes("DEFAULT_MAX_FILE_SIZE = 1024 * 1024")) {
+                return code.replace("DEFAULT_MAX_FILE_SIZE = 1024 * 1024", "DEFAULT_MAX_FILE_SIZE = Infinity")
               }
             },
           },
