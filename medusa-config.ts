@@ -42,6 +42,17 @@ module.exports = defineConfig({
    admin: {
     vite: (config) => {
       return {
+        plugins: [
+          {
+            name: "increase-upload-size-limit",
+            enforce: "pre" as const,
+            transform(code: string, id: string) {
+              if (id.includes("upload-media-form-item")) {
+                return code.replace("<FileUpload", "<FileUpload maxFileSize={Infinity}")
+              }
+            },
+          },
+        ],
         server: {
           host: "0.0.0.0",
           // Allow all hosts when running in Docker (development mode)
