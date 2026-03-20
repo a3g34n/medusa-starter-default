@@ -2,13 +2,16 @@ import { defineWidgetConfig } from "@medusajs/admin-sdk"
 import { DetailWidgetProps, HttpTypes } from "@medusajs/framework/types"
 import { Container, Switch, Text, toast } from "@medusajs/ui"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { sdk } from "../lib/client"
 
 const ProductCustomizationWidget = ({
   data: product,
 }: DetailWidgetProps<HttpTypes.AdminProduct>) => {
   const queryClient = useQueryClient()
-  const isEnabled = product.metadata?.allows_customization === true
+  const [isEnabled, setIsEnabled] = useState(
+    product.metadata?.allows_customization === true
+  )
 
   const toggleMutation = useMutation({
     mutationFn: (enabled: boolean) =>
@@ -19,6 +22,7 @@ const ProductCustomizationWidget = ({
         },
       }),
     onSuccess: (_, enabled) => {
+      setIsEnabled(enabled)
       queryClient.invalidateQueries({ queryKey: ["product", product.id] })
       toast.success(
         enabled ? "Customization enabled" : "Customization disabled"
