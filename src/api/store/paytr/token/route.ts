@@ -1,7 +1,7 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules } from "@medusajs/framework/utils"
 import type { IPaymentModuleService } from "@medusajs/types"
-import PayTRProviderService from "../../../../modules/payment-paytr/service"
+import { getPayTRIframeToken } from "../../../../modules/payment-paytr/utils"
 
 type TokenRequestBody = {
   session_id: string
@@ -70,8 +70,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
 
   // ── 5. Call PayTR API ────────────────────────────────────────────────────
-  const paytrService = new PayTRProviderService(
-    {},
+  const result = await getPayTRIframeToken(
     {
       merchant_id: process.env.PAYTR_MERCHANT_ID!,
       merchant_key: process.env.PAYTR_MERCHANT_KEY!,
@@ -80,17 +79,16 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       merchant_fail_url: process.env.PAYTR_FAIL_URL!,
       test_mode: process.env.NODE_ENV !== "production",
       max_installment: parseInt(process.env.PAYTR_MAX_INSTALLMENT ?? "12", 10),
+    },
+    {
+      user_ip: userIp,
+      merchant_oid,
+      email,
+      payment_amount: Number(session.amount), // already in kuruş
+      user_basket,
+      currency: (session.currency_code ?? "TRY").toUpperCase(),
     }
   )
-
-  const result = await paytrService.getIframeToken({
-    user_ip: userIp,
-    merchant_oid,
-    email,
-    payment_amount: Number(session.amount), // already in kuruş
-    user_basket,
-    currency: (session.currency_code ?? "TRY").toUpperCase(),
-  })
 
   if (result.status === "failed") {
     return res.status(502).json({ error: result.reason })
@@ -98,3 +96,4 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   return res.json({ iframe_token: result.token })
 }
+

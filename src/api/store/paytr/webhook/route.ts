@@ -49,7 +49,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     // Retrieve existing session data to merge (merchant_oid === session_id)
     const session = await paymentModuleService.retrievePaymentSession(merchant_oid, {
-      select: ["id", "data"],
+      select: ["id", "data", "amount", "currency_code"],
     })
 
     const updatedData = {
@@ -61,6 +61,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
     await paymentModuleService.updatePaymentSession({
       id: merchant_oid,
+      currency_code: session.currency_code,
+      amount: session.amount,
       data: updatedData,
     })
 

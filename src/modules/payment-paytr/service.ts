@@ -205,6 +205,7 @@ class PayTRProviderService extends AbstractPaymentProvider<PayTROptions> {
     const merchant_oid = (context?.idempotency_key as string) ?? `paytr_${Date.now()}`
 
     return {
+      id: merchant_oid,
       data: {
         merchant_oid,
         status: "pending",
