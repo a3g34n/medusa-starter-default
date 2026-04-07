@@ -5,6 +5,26 @@ loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 module.exports = defineConfig({
   modules: [
     {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "./src/modules/payment-paytr",
+            id: "paytr",
+            options: {
+              merchant_id: process.env.PAYTR_MERCHANT_ID,
+              merchant_key: process.env.PAYTR_MERCHANT_KEY,
+              merchant_salt: process.env.PAYTR_MERCHANT_SALT,
+              merchant_ok_url: process.env.PAYTR_OK_URL,
+              merchant_fail_url: process.env.PAYTR_FAIL_URL,
+              test_mode: process.env.NODE_ENV !== "production",
+              max_installment: parseInt(process.env.PAYTR_MAX_INSTALLMENT || "12", 10),
+            },
+          },
+        ],
+      },
+    },
+    {
       resolve: "@medusajs/medusa/file",
       options: {
         providers: [
