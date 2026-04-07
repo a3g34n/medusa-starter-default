@@ -31,6 +31,7 @@ COPY --from=builder /app/.medusa ./.medusa
 COPY --from=builder /app/.medusa/server/public ./public
 COPY --from=builder /app/medusa-config.ts ./medusa-config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/src ./src
 # Copy public folder if it exists (for static assets)
 # COPY --from=builder /app/public ./public 
 
