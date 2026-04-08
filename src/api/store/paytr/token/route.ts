@@ -1,75 +1,86 @@
 import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { Modules } from "@medusajs/framework/utils"
-import type { IPaymentModuleService } from "@medusajs/types"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { getPayTRIframeToken } from "../../../../modules/payment-paytr/utils"
 
 type TokenRequestBody = {
-  session_id: string
-  /** Optional basket items: [[name, unit_price_str, qty_str], ...] */
-  basket_items?: [string, string, string][]
+  cart_id: string
 }
 
 /**
- * Get a PayTR iframe token for an existing payment session.
- *
- * The storefront calls this after creating the payment session to display
- * the PayTR payment iframe.
+ * Get a PayTR iframe token for a cart's active payment session.
  *
  * POST /store/paytr/token
- * Body: { session_id: "payses_...", basket_items?: [...] }
- *
+ * Body: { cart_id: "cart_..." }
  * Response: { iframe_token: "..." }
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const { session_id, basket_items } = req.body as TokenRequestBody
+  const { cart_id } = req.body as TokenRequestBody
 
-  if (!session_id) {
-    return res.status(400).json({ error: "session_id is required" })
+  if (!cart_id) {
+    return res.status(400).json({ error: "cart_id is required" })
   }
 
-  // ── 1. Retrieve the payment session ─────────────────────────────────────
-  const paymentModuleService = req.scope.resolve<IPaymentModuleService>(Modules.PAYMENT)
+  // ── 1. Look up cart → payment session via query graph ──────────────────
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
-  let session: Awaited<ReturnType<typeof paymentModuleService.retrievePaymentSession>>
-  try {
-    session = await paymentModuleService.retrievePaymentSession(session_id, {
-      select: ["id", "data", "amount", "currency_code"],
-    })
-  } catch {
-    return res.status(404).json({ error: "Payment session not found" })
+  const { data: carts } = await query.graph({
+    entity: "cart",
+    fields: [
+      "id",
+      "email",
+      "currency_code",
+      "items.title",
+      "items.unit_price",
+      "items.quantity",
+      "payment_collection.payment_sessions.id",
+      "payment_collection.payment_sessions.provider_id",
+      "payment_collection.payment_sessions.amount",
+      "payment_collection.payment_sessions.data",
+    ],
+    filters: { id: cart_id },
+  })
+
+  const cart = carts?.[0]
+  if (!cart) {
+    return res.status(404).json({ error: "Cart not found" })
   }
 
-  const sessionData = (session.data ?? {}) as Record<string, unknown>
+  const paymentSession = cart.payment_collection?.payment_sessions?.find(
+    (s: any) => s.provider_id === "pp_paytr_paytr"
+  )
 
-  // merchant_oid was set in initiatePayment as the session_id (idempotency_key)
-  const merchant_oid = (sessionData.merchant_oid as string) ?? session_id
+  if (!paymentSession) {
+    return res.status(404).json({ error: "PayTR payment session not found for this cart" })
+  }
 
-  // ── 2. Get user IP ───────────────────────────────────────────────────────
+  const sessionData = (paymentSession.data ?? {}) as Record<string, unknown>
+  const merchant_oid = (sessionData.merchant_oid as string) ?? paymentSession.id
+
+  // ── 2. Get user IP ──────────────────────────────────────────────────────
   const userIp =
     (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
     req.socket?.remoteAddress ??
     "1.2.3.4"
 
-  // ── 3. Get customer email ────────────────────────────────────────────────
-  // Try from session context, fall back to a placeholder
-  const email = (sessionData.customer_email as string) ?? "customer@example.com"
+  // ── 3. Build basket from cart line items ────────────────────────────────
+  // PayTR expects: [[name, unit_price_str, qty], ...]
+  // unit_price_str is in main currency unit (e.g. "990.00" for 990 TRY)
+  let basket: [string, string, number][]
 
-  // ── 4. Build basket ──────────────────────────────────────────────────────
-  // PayTR expects: [[name, unit_price_str, qty_str], ...]
-  // unit_price_str is in main currency unit (e.g. "100.00" for 100 TRY)
-  let basket: [string, string, string][]
-
-  if (basket_items && basket_items.length > 0) {
-    basket = basket_items
+  if (cart.items?.length > 0) {
+    basket = cart.items.map((item: any) => [
+      item.title ?? "Product",
+      (Number(item.unit_price) / 100).toFixed(2),
+      item.quantity,
+    ])
   } else {
-    // Generate a single-item basket from the total amount
-    const amountInMainUnit = (Number(session.amount) / 100).toFixed(2)
-    basket = [["Order", amountInMainUnit, "1"]]
+    const amountInMainUnit = (Number(paymentSession.amount) / 100).toFixed(2)
+    basket = [["Order", amountInMainUnit, 1]]
   }
 
   const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
 
-  // ── 5. Call PayTR API ────────────────────────────────────────────────────
+  // ── 4. Call PayTR API ───────────────────────────────────────────────────
   const result = await getPayTRIframeToken(
     {
       merchant_id: process.env.PAYTR_MERCHANT_ID!,
@@ -83,10 +94,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     {
       user_ip: userIp,
       merchant_oid,
-      email,
-      payment_amount: Number(session.amount), // already in kuruş
+      email: cart.email ?? "customer@example.com",
+      payment_amount: Number(paymentSession.amount), // already in kuruş
       user_basket,
-      currency: (session.currency_code ?? "TRY").toUpperCase(),
+      currency: (cart.currency_code ?? "TRY").toUpperCase(),
     }
   )
 
@@ -96,4 +107,3 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   return res.json({ iframe_token: result.token })
 }
-
