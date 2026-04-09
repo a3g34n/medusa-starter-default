@@ -387,10 +387,13 @@ class PayTRProviderService extends AbstractPaymentProvider<PayTROptions> {
     }
 
     if (status === "success") {
+      // Reconstruct real Medusa session ID — we stripped "_" before sending to PayTR
+      // e.g. "payses01ABC" → "payses_01ABC"
+      const session_id = merchant_oid.replace(/^payses/, "payses_")
       return {
         action: "captured", // PaymentActions.SUCCESSFUL = "captured"
         data: {
-          session_id: merchant_oid, // merchant_oid === Medusa session_id (set in initiatePayment)
+          session_id,
           amount: parseInt(total_amount, 10),
         },
       }
