@@ -389,7 +389,8 @@ class PayTRProviderService extends AbstractPaymentProvider<PayTROptions> {
         action: "captured", // PaymentActions.SUCCESSFUL = "captured"
         data: {
           session_id,
-          amount: parseInt(total_amount, 10),
+          // PayTR sends total_amount in kuruş; Medusa stores amounts in whole TRY
+          amount: parseInt(total_amount, 10) / 100,
         },
       }
     }
