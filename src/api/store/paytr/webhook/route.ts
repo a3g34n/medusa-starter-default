@@ -2,24 +2,53 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules, PaymentWebhookEvents } from "@medusajs/framework/utils"
 import type { IPaymentModuleService, IEventBusModuleService } from "@medusajs/types"
 import crypto from "crypto"
+import { IncomingMessage } from "http"
+
+/**
+ * Read the raw request body as a string, then parse as urlencoded.
+ * Needed because PayTR sends application/x-www-form-urlencoded
+ * and Medusa's default JSON body parser rejects it with 400.
+ */
+function readUrlencodedBody(req: IncomingMessage): Promise<Record<string, string>> {
+  return new Promise((resolve, reject) => {
+    let data = ""
+    req.on("data", (chunk) => (data += chunk.toString()))
+    req.on("end", () => {
+      try {
+        const params = new URLSearchParams(data)
+        const result: Record<string, string> = {}
+        params.forEach((value, key) => { result[key] = value })
+        resolve(result)
+      } catch (e) {
+        reject(e)
+      }
+    })
+    req.on("error", reject)
+  })
+}
 
 /**
  * PayTR payment notification callback.
  *
  * Configure this URL in your PayTR merchant panel as "Bildirim URL":
- *   https://your-backend-domain/store/paytr/webhook
+ *   https://admin.lounjstudio.com/store/paytr/webhook
  *
  * PayTR POSTs URL-encoded data and expects "OK" in the response body.
  * If it doesn't receive "OK", it retries up to 10 times over 24 hours.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const body = req.body as Record<string, string>
+  // Parse the urlencoded body manually since Medusa's body parser only handles JSON
+  let body: Record<string, string>
+  try {
+    body = await readUrlencodedBody(req)
+  } catch {
+    return res.send("OK")
+  }
 
   const { merchant_oid, status, total_amount, hash } = body
 
   // ── 1. Validate required fields ────────────────────────────────────────────
   if (!merchant_oid || !status || !total_amount || !hash) {
-    // Respond OK to stop PayTR retrying a malformed request
     return res.send("OK")
   }
 
@@ -29,7 +58,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const merchantSalt = process.env.PAYTR_MERCHANT_SALT
 
   if (!merchantKey || !merchantSalt) {
-    // Misconfigured server — don't let PayTR retry endlessly
     return res.send("OK")
   }
 
@@ -39,7 +67,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     .digest("base64")
 
   if (hash !== expectedHash) {
-    // Invalid signature — could be a spoofed request
     return res.send("OK")
   }
 
@@ -85,14 +112,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         },
       },
       {
-        // Small delay — data is already updated so no race condition risk
         delay: 500,
         attempts: 3,
       }
     )
   } catch {
     // Even if processing fails, respond OK to avoid PayTR retrying.
-    // The event will be retried by the event bus.
   }
 
   // ── 5. PayTR requires exactly "OK" as the response body ───────────────────
