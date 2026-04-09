@@ -17,7 +17,7 @@ module.exports = defineConfig({
               merchant_salt: process.env.PAYTR_MERCHANT_SALT,
               merchant_ok_url: process.env.PAYTR_OK_URL,
               merchant_fail_url: process.env.PAYTR_FAIL_URL,
-              test_mode: process.env.NODE_ENV !== "production",
+              test_mode: process.env.PAYTR_TEST_MODE === "1",
               max_installment: parseInt(process.env.PAYTR_MAX_INSTALLMENT || "12", 10),
             },
           },

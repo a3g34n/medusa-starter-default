@@ -81,6 +81,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
 
   // ── 4. Call PayTR API ───────────────────────────────────────────────────
+  console.log("[PayTR] Requesting token for merchant_oid:", merchant_oid, "amount:", paymentSession.amount, "currency:", cart.currency_code)
   const result = await getPayTRIframeToken(
     {
       merchant_id: process.env.PAYTR_MERCHANT_ID!,
@@ -88,7 +89,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       merchant_salt: process.env.PAYTR_MERCHANT_SALT!,
       merchant_ok_url: process.env.PAYTR_OK_URL!,
       merchant_fail_url: process.env.PAYTR_FAIL_URL!,
-      test_mode: process.env.NODE_ENV !== "production",
+      test_mode: process.env.PAYTR_TEST_MODE === "1",
       max_installment: parseInt(process.env.PAYTR_MAX_INSTALLMENT ?? "12", 10),
     },
     {
@@ -102,6 +103,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   )
 
   if (result.status === "failed") {
+    console.error("[PayTR] Token request failed:", result.reason)
     return res.status(502).json({ error: result.reason })
   }
 
