@@ -43,12 +43,15 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     return res.send("OK")
   }
 
+  // Reconstruct Medusa session ID: we stripped "_" before sending to PayTR
+  // e.g. "payses01ABC" → "payses_01ABC"
+  const session_id = merchant_oid.replace(/^payses/, "payses_")
+
   // ── 3. Update session data so authorizePayment knows the payment was confirmed ──
   try {
     const paymentModuleService = req.scope.resolve<IPaymentModuleService>(Modules.PAYMENT)
 
-    // Retrieve existing session data to merge (merchant_oid === session_id)
-    const session = await paymentModuleService.retrievePaymentSession(merchant_oid, {
+    const session = await paymentModuleService.retrievePaymentSession(session_id, {
       select: ["id", "data", "amount", "currency_code"],
     })
 
@@ -60,7 +63,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     }
 
     await paymentModuleService.updatePaymentSession({
-      id: merchant_oid,
+      id: session_id,
       currency_code: session.currency_code,
       amount: session.amount,
       data: updatedData,

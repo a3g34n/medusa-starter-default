@@ -59,7 +59,10 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   const sessionData = (paymentSession.data ?? {}) as Record<string, unknown>
-  const merchant_oid = (sessionData.merchant_oid as string) ?? paymentSession.id
+  // PayTR requires alphanumeric merchant_oid (no underscores).
+  // Medusa session IDs look like "payses_01ABC..." — strip the underscore.
+  const rawOid = (sessionData.merchant_oid as string) ?? paymentSession.id
+  const merchant_oid = rawOid.replace(/_/g, "")
 
   // ── 2. Get user IP ──────────────────────────────────────────────────────
   const userIp =
