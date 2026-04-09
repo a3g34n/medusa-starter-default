@@ -77,7 +77,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       {
         name: PaymentWebhookEvents.WebhookReceived,
         data: {
-          provider: "paytr",
+          provider: "paytr_paytr",
           payload: {
             data: body,
             rawData: JSON.stringify(body),

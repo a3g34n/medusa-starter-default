@@ -6,9 +6,6 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
  *
  * GET /store/paytr/order-by-cart?cart_id=cart_01...
  * Response: { order_id: "order_01..." }
- *
- * Uses a raw knex query because IOrderModuleService.listOrders
- * does not support filtering by cart_id via MikroORM.
  */
 export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const cart_id = req.query.cart_id as string | undefined
@@ -17,14 +14,20 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
     return res.status(400).json({ error: "cart_id is required" })
   }
 
-  const pgConnection = req.scope.resolve(ContainerRegistrationKeys.PG_CONNECTION) as any
+  const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
 
-  const rows = await pgConnection("order").where({ cart_id }).select("id").limit(1)
+  // In Medusa v2, the cart→order link is queryable through the cart entity
+  const { data: carts } = await query.graph({
+    entity: "cart",
+    fields: ["id", "completed_at", "order.id"],
+    filters: { id: cart_id },
+  })
 
-  const order = rows?.[0]
-  if (!order) {
+  const order_id = (carts?.[0] as any)?.order?.id
+
+  if (!order_id) {
     return res.status(404).json({ error: "Order not found for this cart" })
   }
 
-  return res.json({ order_id: order.id })
+  return res.json({ order_id })
 }
