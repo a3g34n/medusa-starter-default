@@ -255,9 +255,8 @@ class PayTRProviderService extends AbstractPaymentProvider<PayTROptions> {
       return { data: sessionData }
     }
 
-    // refund_amount comes from Medusa in subunits (kuruş) — convert to main unit
-    const refundAmountKurus = Number(data.amount ?? 0)
-    const return_amount = (refundAmountKurus / 100).toFixed(2)
+    // Medusa stores amounts in whole TRY (not kuruş)
+    const return_amount = Number(data.amount ?? 0).toFixed(2)
 
     const paytr_token = this.hmac(
       this.config.merchant_id + merchant_oid + return_amount + this.config.merchant_salt
