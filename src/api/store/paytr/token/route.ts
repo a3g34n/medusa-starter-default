@@ -78,12 +78,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   if (cart.items?.length > 0) {
     basket = cart.items.map((item: any) => [
       item.title ?? "Product",
-      (Number(item.unit_price) / 100).toFixed(2),
+      Number(item.unit_price).toFixed(2),
       item.quantity,
     ])
   } else {
-    const amountInMainUnit = (Number(paymentSession.amount) / 100).toFixed(2)
-    basket = [["Order", amountInMainUnit, 1]]
+    basket = [["Order", Number(paymentSession.amount).toFixed(2), 1]]
   }
 
   const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
@@ -110,7 +109,7 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       user_ip: userIp,
       merchant_oid,
       email: cart.email ?? "customer@example.com",
-      payment_amount: Number(paymentSession.amount),
+      payment_amount: Number(paymentSession.amount) * 100,
       user_basket,
       currency: (cart.currency_code ?? "TRY").toUpperCase(),
       user_name,
