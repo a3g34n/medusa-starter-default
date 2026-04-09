@@ -23,7 +23,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse) {
   const { data: orders } = await query.graph({
     entity: "order",
     fields: ["id"],
-    filters: { cart_id },
+    filters: { cart_id } as any,
   })
 
   const order = orders?.[0]
