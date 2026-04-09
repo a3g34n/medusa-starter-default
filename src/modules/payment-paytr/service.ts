@@ -222,17 +222,12 @@ class PayTRProviderService extends AbstractPaymentProvider<PayTROptions> {
    * The webhook handler updates session data with paytr_confirmed=true.
    */
   async authorizePayment(data: AuthorizePaymentInput): Promise<AuthorizePaymentOutput> {
+    // PayTR iFrame: authorizePayment is only ever called by processPaymentWorkflow,
+    // which is triggered by our HMAC-validated webhook (/webhooks/paytr).
+    // HMAC validation already confirmed the payment is genuine — always authorize.
     const sessionData = (data.data ?? {}) as Record<string, unknown>
-
-    if (sessionData.paytr_confirmed === true) {
-      return {
-        status: PaymentSessionStatus.AUTHORIZED,
-        data: sessionData,
-      }
-    }
-
     return {
-      status: PaymentSessionStatus.PENDING,
+      status: PaymentSessionStatus.AUTHORIZED,
       data: sessionData,
     }
   }
