@@ -6,8 +6,7 @@ import { IncomingMessage } from "http"
 
 /**
  * Read the raw request body as a string, then parse as urlencoded.
- * Needed because PayTR sends application/x-www-form-urlencoded
- * and Medusa's default JSON body parser rejects it with 400.
+ * PayTR sends application/x-www-form-urlencoded.
  */
 function readUrlencodedBody(req: IncomingMessage): Promise<Record<string, string>> {
   return new Promise((resolve, reject) => {
@@ -30,14 +29,14 @@ function readUrlencodedBody(req: IncomingMessage): Promise<Record<string, string
 /**
  * PayTR payment notification callback.
  *
- * Configure this URL in your PayTR merchant panel as "Bildirim URL":
- *   https://admin.lounjstudio.com/store/paytr/webhook
+ * Set this URL in your PayTR merchant panel as "Bildirim URL":
+ *   https://admin.lounjstudio.com/webhooks/paytr
  *
+ * This route is outside /store/ to avoid the publishable API key requirement.
  * PayTR POSTs URL-encoded data and expects "OK" in the response body.
  * If it doesn't receive "OK", it retries up to 10 times over 24 hours.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  // Parse the urlencoded body manually since Medusa's body parser only handles JSON
   let body: Record<string, string>
   try {
     body = await readUrlencodedBody(req)
@@ -53,7 +52,6 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   }
 
   // ── 2. Validate PayTR HMAC signature ───────────────────────────────────────
-  // Formula: base64(hmac_sha256(merchant_oid + merchant_salt + status + total_amount, merchant_key))
   const merchantKey = process.env.PAYTR_MERCHANT_KEY
   const merchantSalt = process.env.PAYTR_MERCHANT_SALT
 
