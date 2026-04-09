@@ -19,8 +19,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   const { merchant_oid, status, total_amount, hash } = body
 
+  console.log("[PayTR webhook] Received:", { merchant_oid, status, total_amount, hasHash: !!hash })
+
   // ── 1. Validate required fields ────────────────────────────────────────────
   if (!merchant_oid || !status || !total_amount || !hash) {
+    console.error("[PayTR webhook] Missing required fields:", { merchant_oid, status, total_amount, hash })
     return res.send("OK")
   }
 
@@ -87,8 +90,8 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
         attempts: 3,
       }
     )
-  } catch {
-    // Even if processing fails, respond OK to avoid PayTR retrying.
+  } catch (err: any) {
+    console.error("[PayTR webhook] Processing failed:", err?.message ?? err)
   }
 
   // ── 5. PayTR requires exactly "OK" as the response body ───────────────────
