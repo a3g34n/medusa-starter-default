@@ -32,6 +32,11 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       "items.title",
       "items.unit_price",
       "items.quantity",
+      "shipping_address.first_name",
+      "shipping_address.last_name",
+      "shipping_address.address_1",
+      "shipping_address.city",
+      "shipping_address.phone",
       "payment_collection.payment_sessions.id",
       "payment_collection.payment_sessions.provider_id",
       "payment_collection.payment_sessions.amount",
@@ -80,7 +85,13 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
 
   const user_basket = Buffer.from(JSON.stringify(basket)).toString("base64")
 
-  // ── 4. Call PayTR API ───────────────────────────────────────────────────
+  // ── 4. Build user info from shipping address ────────────────────────────
+  const addr = cart.shipping_address
+  const user_name = [addr?.first_name, addr?.last_name].filter(Boolean).join(" ") || "Müşteri"
+  const user_address = [addr?.address_1, addr?.city].filter(Boolean).join(", ") || "-"
+  const user_phone = addr?.phone || "05000000000"
+
+  // ── 5. Call PayTR API ───────────────────────────────────────────────────
   console.log("[PayTR] Requesting token for merchant_oid:", merchant_oid, "amount:", paymentSession.amount, "currency:", cart.currency_code)
   const result = await getPayTRIframeToken(
     {
@@ -96,9 +107,12 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
       user_ip: userIp,
       merchant_oid,
       email: cart.email ?? "customer@example.com",
-      payment_amount: Number(paymentSession.amount), // already in kuruş
+      payment_amount: Number(paymentSession.amount),
       user_basket,
       currency: (cart.currency_code ?? "TRY").toUpperCase(),
+      user_name,
+      user_address,
+      user_phone,
     }
   )
 
