@@ -2,29 +2,6 @@ import type { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { Modules, PaymentWebhookEvents } from "@medusajs/framework/utils"
 import type { IPaymentModuleService, IEventBusModuleService } from "@medusajs/types"
 import crypto from "crypto"
-import { IncomingMessage } from "http"
-
-/**
- * Read the raw request body as a string, then parse as urlencoded.
- * PayTR sends application/x-www-form-urlencoded.
- */
-function readUrlencodedBody(req: IncomingMessage): Promise<Record<string, string>> {
-  return new Promise((resolve, reject) => {
-    let data = ""
-    req.on("data", (chunk) => (data += chunk.toString()))
-    req.on("end", () => {
-      try {
-        const params = new URLSearchParams(data)
-        const result: Record<string, string> = {}
-        params.forEach((value, key) => { result[key] = value })
-        resolve(result)
-      } catch (e) {
-        reject(e)
-      }
-    })
-    req.on("error", reject)
-  })
-}
 
 /**
  * PayTR payment notification callback.
@@ -37,12 +14,8 @@ function readUrlencodedBody(req: IncomingMessage): Promise<Record<string, string
  * If it doesn't receive "OK", it retries up to 10 times over 24 hours.
  */
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  let body: Record<string, string>
-  try {
-    body = await readUrlencodedBody(req)
-  } catch {
-    return res.send("OK")
-  }
+  // Medusa runs urlencoded body parser on all routes — req.body is already populated
+  const body = req.body as Record<string, string>
 
   const { merchant_oid, status, total_amount, hash } = body
 
